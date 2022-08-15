@@ -1,1 +1,1 @@
-print("sol branch")
+print("sorun çözüldü")
