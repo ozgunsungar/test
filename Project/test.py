@@ -1,1 +1,1 @@
-print("sag branch")
+print("sorun çözüldü")
