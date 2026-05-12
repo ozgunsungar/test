@@ -72,14 +72,31 @@ menubar'da Help'in yanında görünür.
    `KN_DIM_VALUE` attribute'larını doğrula.
 8. Çıktı yolu seç → "Excel'e Bas" → `.xlsx`'i aç, tüm KN'ler listede.
 
-## Notlar / Bilinen Sınırlar
+## API Kullanım Notları (NXOpen .NET — Siemens docs ile doğrulandı)
+
+- **Dialog** `NXOpen.UI.GetUI().CreateDialog("KnBalloonDialog.dlx")` ile
+  yaratılır; `.dlx` `UGII_USER_DIR\application` veya `startup` altında
+  aranır.
+- **IdSymbolBuilder** üyeleri builder üzerinde *doğrudan* set edilir:
+  `Type = IdSymbolBuilder.SymbolTypes.Circle`, `UpperText`, `Size`,
+  `Origin`, `Leader`. `Style` üzerinden değil.
+- **Var olan IdSymbol'ün UpperText'i** okumak için
+  `IdSymbols.CreateIdSymbolBuilder(existingSymbol)` ile builder
+  yaratılır, `UpperText` okunur, `Destroy()` çağrılır.
+- **LeaderData** `part.Annotations.CreateLeaderData()` ile üretilir;
+  `SetTermObject(target)` ile ölçüye bağlanır,
+  `leaderBuilder.Leaders.Append(leader)` eklenir.
+- **SetUserAttribute** imzası `(title, index, value, Update.Option)` —
+  scalar attribute için `index = -1`.
+- **MaskTriple** sabitleri `NXOpen.UF.UFConstants.UF_*` (örn.
+  `UF_drafting_entity_type` + `UF_dimension_subtype`,
+  `UF_pmi_entity_type` + `UF_pmi_dimension_subtype`).
+
+## Bilinen Sınırlar
 
 - `JournalIdentifier` çoğu annotation için kalıcıdır ancak edit/replace
   sonrası değişebilir; bu yüzden balonda `KN_DIM_VALUE` snapshot'ı da
   saklanıyor (Excel için fallback).
 - PMI ID Symbol koleksiyonu lisans yoksa try/catch ile sessizce atlanır.
-- Selection mask numaraları NXOpen `Selection.MaskTriple` ile veriliyor;
-  NX sürümüne göre subtype değerleri farklı çıkarsa
-  `ConfigureDimensionFilter` içindeki triple'lar ayarlanmalı.
 - `.men` cascade button menubar'a iner; gerçek ribbon tabı için NX role
   XML'i ayrıca düzenlenmeli (demo kapsamı dışı).

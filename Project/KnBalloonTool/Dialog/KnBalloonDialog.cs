@@ -1,16 +1,18 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
 using NXOpen;
 using NXOpen.Annotations;
 using NXOpen.BlockStyler;
+using NXOpen.UF;
 using KnBalloonTool.Services;
 
 namespace KnBalloonTool.Dialog
 {
     public sealed class KnBalloonDialog : IDisposable
     {
+        private const string DlxFileName = "KnBalloonDialog.dlx";
+
         private readonly Session _session;
+        private readonly UI _ui;
         private readonly Part _workPart;
         private BlockDialog _dialog;
 
@@ -26,21 +28,19 @@ namespace KnBalloonTool.Dialog
         private StringBlock _stringFilePath;
         private Button _buttonExport;
 
-        private const string DlxFileName = "KnBalloonDialog.dlx";
-
         public KnBalloonDialog()
         {
             _session = Session.GetSession();
+            _ui = UI.GetUI();
             _workPart = _session.Parts.Work;
 
-            string dlxPath = ResolveDlxPath();
-            _dialog = _session.ResourceManager.CreateDialogFromTemplate(dlxPath);
+            _dialog = _ui.CreateDialog(DlxFileName);
 
-            _dialog.AddApplyHandler(ApplyCb);
-            _dialog.AddOkHandler(OkCb);
-            _dialog.AddUpdateHandler(UpdateCb);
-            _dialog.AddInitializeHandler(InitializeCb);
-            _dialog.AddDialogShownHandler(DialogShownCb);
+            _dialog.AddApplyHandler(new BlockDialog.Apply(ApplyCb));
+            _dialog.AddOkHandler(new BlockDialog.Ok(OkCb));
+            _dialog.AddUpdateHandler(new BlockDialog.Update(UpdateCb));
+            _dialog.AddInitializeHandler(new BlockDialog.Initialize(InitializeCb));
+            _dialog.AddDialogShownHandler(new BlockDialog.DialogShown(DialogShownCb));
         }
 
         public void Show()
@@ -55,21 +55,6 @@ namespace KnBalloonTool.Dialog
                 _dialog.Dispose();
                 _dialog = null;
             }
-        }
-
-        private static string ResolveDlxPath()
-        {
-            string dllDir = Path.GetDirectoryName(typeof(KnBalloonDialog).Assembly.Location);
-            string candidate = Path.Combine(dllDir, DlxFileName);
-            if (File.Exists(candidate)) return candidate;
-
-            string userDir = Environment.GetEnvironmentVariable("UGII_USER_DIR");
-            if (!string.IsNullOrEmpty(userDir))
-            {
-                string atStartup = Path.Combine(userDir, "startup", DlxFileName);
-                if (File.Exists(atStartup)) return atStartup;
-            }
-            throw new FileNotFoundException("KnBalloonDialog.dlx not found", DlxFileName);
         }
 
         private void InitializeCb()
@@ -91,14 +76,14 @@ namespace KnBalloonTool.Dialog
             ConfigureDimensionFilter(_selectionPairDim);
 
             _intKnNumber.Value = KnCounterService.GetNextKnNumber(_workPart);
-            _stringFilePath.Value = Path.Combine(
+            _stringFilePath.Value = System.IO.Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "kn_balloons.xlsx");
         }
 
         private void DialogShownCb()
         {
-            // No-op placeholder; available for future focus / state setup.
+            // Available for late-stage UI tweaks.
         }
 
         private int UpdateCb(BlockDialog dialog, UIBlock block)
@@ -114,7 +99,7 @@ namespace KnBalloonTool.Dialog
 
         private int HandleApply()
         {
-            var picks = _selectionDims.GetSelectedObjects();
+            TaggedObject[] picks = _selectionDims.GetSelectedObjects();
             if (picks == null || picks.Length == 0)
             {
                 Inform("Lütfen en az bir ölçü seçin.");
@@ -124,7 +109,7 @@ namespace KnBalloonTool.Dialog
             int current = _intKnNumber.Value;
             bool autoIncrement = _toggleAutoKn.Value;
 
-            foreach (var obj in picks)
+            foreach (TaggedObject obj in picks)
             {
                 string kn = KnCounterService.Format(current);
                 try
@@ -147,15 +132,17 @@ namespace KnBalloonTool.Dialog
                 }
             }
 
-            _intKnNumber.Value = autoIncrement ? current : KnCounterService.GetNextKnNumber(_workPart);
-            _selectionDims.SetSelectedObjects(Array.Empty<TaggedObject>());
+            _intKnNumber.Value = autoIncrement
+                ? current
+                : KnCounterService.GetNextKnNumber(_workPart);
+            _selectionDims.SetSelectedObjects(new TaggedObject[0]);
             return 0;
         }
 
         private int HandlePair()
         {
-            var balloons = _selectionBalloon.GetSelectedObjects();
-            var dims = _selectionPairDim.GetSelectedObjects();
+            TaggedObject[] balloons = _selectionBalloon.GetSelectedObjects();
+            TaggedObject[] dims = _selectionPairDim.GetSelectedObjects();
             if (balloons == null || balloons.Length == 0 || dims == null || dims.Length == 0)
             {
                 Inform("Balon ve ölçü seçimi gerekli.");
@@ -164,15 +151,11 @@ namespace KnBalloonTool.Dialog
 
             string kn = null;
             if (balloons[0] is IdSymbol idSym)
-            {
-                try { kn = idSym.GetIdSymbolPreferences().UpperText; } catch { }
-            }
+                kn = KnCounterService.ReadUpperText(_workPart, idSym);
             else if (balloons[0] is PmiIdSymbol pmiSym)
-            {
-                try { kn = pmiSym.GetIdSymbolPreferences().UpperText; } catch { }
-            }
+                kn = KnCounterService.ReadUpperText(_workPart, pmiSym);
 
-            MappingService.ManualPair(balloons[0], dims[0], kn);
+            MappingService.ManualPair((NXObject)balloons[0], (NXObject)dims[0], kn);
             Inform("Eşleştirildi: " + (kn ?? "(KN yok)"));
             return 0;
         }
@@ -205,18 +188,18 @@ namespace KnBalloonTool.Dialog
             {
                 new Selection.MaskTriple
                 {
-                    Type = 12, // UF_drafting_entity_type
-                    Subtype = 4, // Dimensions
+                    Type = UFConstants.UF_drafting_entity_type,
+                    Subtype = UFConstants.UF_dimension_subtype,
                     SolidBodySubtype = 0,
                 },
                 new Selection.MaskTriple
                 {
-                    Type = 121, // UF_pmi_entity_type
-                    Subtype = 0,
+                    Type = UFConstants.UF_pmi_entity_type,
+                    Subtype = UFConstants.UF_pmi_dimension_subtype,
                     SolidBodySubtype = 0,
                 },
             };
-            block.SetSelectionFilter(SelectObject.SelectionAction.ClearAndEnableSpecific, mask);
+            block.SetSelectionFilter(Selection.SelectionAction.ClearAndEnableSpecific, mask);
         }
 
         private static void ConfigureBalloonFilter(SelectObject block)
@@ -225,12 +208,18 @@ namespace KnBalloonTool.Dialog
             {
                 new Selection.MaskTriple
                 {
-                    Type = 12,
-                    Subtype = 9, // Id symbols
+                    Type = UFConstants.UF_drafting_entity_type,
+                    Subtype = UFConstants.UF_id_symbol_subtype,
+                    SolidBodySubtype = 0,
+                },
+                new Selection.MaskTriple
+                {
+                    Type = UFConstants.UF_pmi_entity_type,
+                    Subtype = UFConstants.UF_pmi_id_symbol_subtype,
                     SolidBodySubtype = 0,
                 },
             };
-            block.SetSelectionFilter(SelectObject.SelectionAction.ClearAndEnableSpecific, mask);
+            block.SetSelectionFilter(Selection.SelectionAction.ClearAndEnableSpecific, mask);
         }
 
         private void Inform(string message)

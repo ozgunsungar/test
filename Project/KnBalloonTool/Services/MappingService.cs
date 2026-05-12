@@ -16,26 +16,26 @@ namespace KnBalloonTool.Services
         public static void MarkBalloonAsToolOwned(NXObject balloon, string knNumber, NXObject dim)
         {
             if (balloon == null) return;
-            balloon.SetUserAttribute(AttrOwned, "true", Update.Option.Now);
-            balloon.SetUserAttribute(AttrNumber, knNumber, Update.Option.Now);
-            balloon.SetUserAttribute(AttrDimTag, dim?.JournalIdentifier ?? string.Empty, Update.Option.Now);
+            balloon.SetUserAttribute(AttrOwned, -1, "true", Update.Option.Now);
+            balloon.SetUserAttribute(AttrNumber, -1, knNumber ?? string.Empty, Update.Option.Now);
+            balloon.SetUserAttribute(AttrDimTag, -1, dim?.JournalIdentifier ?? string.Empty, Update.Option.Now);
 
             string snapshot = TryReadDimensionValue(dim);
             if (!string.IsNullOrEmpty(snapshot))
-                balloon.SetUserAttribute(AttrDimSnapshot, snapshot, Update.Option.Now);
+                balloon.SetUserAttribute(AttrDimSnapshot, -1, snapshot, Update.Option.Now);
         }
 
         public static void ManualPair(NXObject balloon, NXObject dim, string knNumber)
         {
             if (balloon == null || dim == null) return;
-            balloon.SetUserAttribute(AttrOwned, "manual", Update.Option.Now);
+            balloon.SetUserAttribute(AttrOwned, -1, "manual", Update.Option.Now);
             if (!string.IsNullOrEmpty(knNumber))
-                balloon.SetUserAttribute(AttrNumber, knNumber, Update.Option.Now);
-            balloon.SetUserAttribute(AttrDimTag, dim.JournalIdentifier, Update.Option.Now);
+                balloon.SetUserAttribute(AttrNumber, -1, knNumber, Update.Option.Now);
+            balloon.SetUserAttribute(AttrDimTag, -1, dim.JournalIdentifier, Update.Option.Now);
 
             string snapshot = TryReadDimensionValue(dim);
             if (!string.IsNullOrEmpty(snapshot))
-                balloon.SetUserAttribute(AttrDimSnapshot, snapshot, Update.Option.Now);
+                balloon.SetUserAttribute(AttrDimSnapshot, -1, snapshot, Update.Option.Now);
         }
 
         public static List<KnBalloonRecord> CollectRecords(Part part)
@@ -44,12 +44,12 @@ namespace KnBalloonTool.Services
             if (part == null) return records;
 
             foreach (IdSymbol sym in part.Annotations.IdSymbols)
-                records.Add(BuildRecord(sym, "Drafting"));
+                records.Add(BuildRecord(part, sym, "Drafting"));
 
             try
             {
                 foreach (PmiIdSymbol sym in part.PmiManager.PmiIdSymbols)
-                    records.Add(BuildRecord(sym, "PMI"));
+                    records.Add(BuildRecord(part, sym, "PMI"));
             }
             catch (NXException)
             {
@@ -60,15 +60,12 @@ namespace KnBalloonTool.Services
             return records;
         }
 
-        private static KnBalloonRecord BuildRecord(IdSymbol sym, string source)
+        private static KnBalloonRecord BuildRecord(Part part, IdSymbol sym, string source)
         {
-            string upper = string.Empty;
-            try { upper = sym.GetIdSymbolPreferences().UpperText ?? string.Empty; }
-            catch { /* ignore */ }
-
+            string upper = KnCounterService.ReadUpperText(part, sym).Trim();
             return new KnBalloonRecord
             {
-                KnNumber = upper.Trim(),
+                KnNumber = upper,
                 DimensionType = source,
                 DimensionJournalId = GetAttr(sym, AttrDimTag),
                 NominalText = GetAttr(sym, AttrDimSnapshot),
@@ -76,15 +73,12 @@ namespace KnBalloonTool.Services
             };
         }
 
-        private static KnBalloonRecord BuildRecord(PmiIdSymbol sym, string source)
+        private static KnBalloonRecord BuildRecord(Part part, PmiIdSymbol sym, string source)
         {
-            string upper = string.Empty;
-            try { upper = sym.GetIdSymbolPreferences().UpperText ?? string.Empty; }
-            catch { /* ignore */ }
-
+            string upper = KnCounterService.ReadUpperText(part, sym).Trim();
             return new KnBalloonRecord
             {
-                KnNumber = upper.Trim(),
+                KnNumber = upper,
                 DimensionType = source,
                 DimensionJournalId = GetAttr(sym, AttrDimTag),
                 NominalText = GetAttr(sym, AttrDimSnapshot),
@@ -110,8 +104,11 @@ namespace KnBalloonTool.Services
         {
             try
             {
-                if (dim is Dimension d) return d.AnnotationText != null && d.AnnotationText.Length > 0 ? d.AnnotationText[0] : string.Empty;
-                if (dim is PmiDimension pd) return pd.AnnotationText != null && pd.AnnotationText.Length > 0 ? pd.AnnotationText[0] : string.Empty;
+                if (dim is Annotation ann)
+                {
+                    string[] txt = ann.GetAnnotationText();
+                    return (txt != null && txt.Length > 0) ? txt[0] : string.Empty;
+                }
             }
             catch
             {
