@@ -4,6 +4,15 @@ NXOpen .NET tabanlı demo. Drawing veya PMI üzerinde seçilen ölçülere
 otomatik artan `KN001`, `KN002`... numaralı **ID Symbol** balonu atar ve
 KN ↔ ölçü değeri eşleşmelerini Excel'e ihraç eder.
 
+## Dokümanlar
+
+| Doküman | İçerik |
+|---|---|
+| [`docs/UserGuide.md`](docs/UserGuide.md) | Kullanım kılavuzu — kurulum, senaryolar, SSS |
+| [`docs/UML.md`](docs/UML.md) | UML sınıf diyagramı + persistence şeması |
+| [`docs/UseCase.md`](docs/UseCase.md) | Use case + akış + sıra diyagramları |
+| [`docs/Presentation.md`](docs/Presentation.md) | Sunum (Marp/Slidev uyumlu) |
+
 ## Özellikler
 
 - Tek dialog: balon atama, manuel eşleştirme, Excel ihraç
