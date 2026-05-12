@@ -12,8 +12,28 @@ KN ↔ ölçü değeri eşleşmelerini Excel'e ihraç eder.
   ID Symbol'ler taranır, `KN\d+` regex ile maksimum bulunur, sıradaki = max+1
 - Manuel oluşturulmuş balonlar da sayım ve Excel'e dahil
 - Bizim oluşturduğumuz balona attribute set:
-  `KN_TOOL_OWNED`, `KN_NUMBER`, `KN_DIM_TAG`, `KN_DIM_VALUE`
-- Excel: ClosedXML ile `.xlsx` (KN no, tip, nominal, view/sheet, not...)
+  `KN_TOOL_OWNED`, `KN_NUMBER`, `KN_DIM_TAG`, `KN_DIM_VALUE` (snapshot)
+- Excel **anlık değer modunda**: export sırasında `KN_DIM_TAG` ile
+  ölçüye geri ulaşılır, `GetAnnotationText()` ile o anki nominal +
+  tolerans satırları, `OwningView/Sheet.Name` ile view/sheet okunur.
+  Ölçü silinmiş ya da journal id değişmişse `KN_DIM_VALUE` snapshot'a
+  fallback ve "ÖLÇÜ BULUNAMADI" notu basılır.
+- Excel kolonları: `KN No | Tip | Anlık Değer | Üst Tol. | Alt Tol. |
+  View / Sheet | Snapshot | Dim Journal ID | Not`
+
+## Persistence (state nerede tutuluyor?)
+
+- **Tool hafıza tutmaz.** Dialog kapanınca tüm RAM state'i gider.
+- Tek kalıcı kaynak: **part dosyasının içindeki annotation'lar +
+  bizim onlara yazdığımız user attribute'ler**.
+- Her açılışta `KnCounterService.GetNextKnNumber(part)` `IdSymbols`
+  + `PmiIdSymbols` koleksiyonlarını **baştan döngüyle gezer**,
+  `KN(\d+)` regex'iyle max'ı bulur, +1 döndürür.
+- Excel export'taki tarama da aynı şekilde her seferinde fresh çalışır;
+  ayrıca tüm Dimension/PmiDimension'lar `JournalIdentifier` ile
+  dict'lenir ki balon → ölçü lookup'ı O(1) olsun.
+- Sonuç: part'ı başka makinede aç, NX restart et, aylar sonra dön —
+  next-KN doğru hesaplanır ve Excel doğru basılır.
 
 ## Proje Yapısı
 
@@ -71,6 +91,12 @@ menubar'da Help'in yanında görünür.
 7. Information → Object → Attributes ile balonun `KN_DIM_TAG`,
    `KN_DIM_VALUE` attribute'larını doğrula.
 8. Çıktı yolu seç → "Excel'e Bas" → `.xlsx`'i aç, tüm KN'ler listede.
+9. **Anlık değer testi:** KN001'in bağlı olduğu ölçüyü düzenle
+   (örn. 10 → 12). Tekrar "Excel'e Bas". XLSX'i aç → KN001 satırında
+   "Anlık Değer" = 12, "Snapshot" = 10. Tolerans/View kolonları dolu.
+10. **Yeniden açılış testi:** NX'i kapat-aç, part'ı tekrar yükle,
+    yeni bir ölçü ekle, tool'u aç → `KN No` doğru sıradan (12) başlar.
+    Yeni ölçüyü balonla, Excel'e bas → eski KN'ler de hâlâ orada.
 
 ## API Kullanım Notları (NXOpen .NET — Siemens docs ile doğrulandı)
 
