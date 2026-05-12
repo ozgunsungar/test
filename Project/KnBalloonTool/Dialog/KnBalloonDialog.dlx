@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<BlockUI Version="11" Localizable="false">
+  <DialogItem Name="dialogProperties">
+    <DialogTitle Value="KN Balon Atama" />
+    <Width Value="380" />
+    <ApplyButtonVisibility Value="false" />
+    <OkButtonVisibility Value="true" />
+    <CancelButtonVisibility Value="true" />
+  </DialogItem>
+
+  <UIBlock BlockID="groupAssign" BlockType="Group">
+    <Properties>
+      <Label Value="Balon Ata" />
+      <Show Value="true" />
+    </Properties>
+    <UIBlock BlockID="selectionDims" BlockType="SelectObject">
+      <Properties>
+        <Label Value="Ölçü seç (Drafting / PMI)" />
+        <MaximumScope Value="UseDefault" />
+        <SelectMode Value="Multiple" />
+      </Properties>
+    </UIBlock>
+    <UIBlock BlockID="toggleAutoKn" BlockType="Toggle">
+      <Properties>
+        <Label Value="Otomatik artır" />
+        <Value Value="true" />
+      </Properties>
+    </UIBlock>
+    <UIBlock BlockID="intKnNumber" BlockType="Integer">
+      <Properties>
+        <Label Value="KN No (override)" />
+        <Value Value="1" />
+        <MinimumValue Value="1" />
+      </Properties>
+    </UIBlock>
+    <UIBlock BlockID="buttonApply" BlockType="ActionButton">
+      <Properties>
+        <Label Value="Balon Ata" />
+      </Properties>
+    </UIBlock>
+  </UIBlock>
+
+  <UIBlock BlockID="groupManualPair" BlockType="Group">
+    <Properties>
+      <Label Value="Manuel Eşleştir" />
+      <Show Value="true" />
+    </Properties>
+    <UIBlock BlockID="selectionBalloon" BlockType="SelectObject">
+      <Properties>
+        <Label Value="Manuel balon seç" />
+        <SelectMode Value="Single" />
+      </Properties>
+    </UIBlock>
+    <UIBlock BlockID="selectionPairDim" BlockType="SelectObject">
+      <Properties>
+        <Label Value="Eşleşecek ölçü" />
+        <SelectMode Value="Single" />
+      </Properties>
+    </UIBlock>
+    <UIBlock BlockID="buttonPair" BlockType="ActionButton">
+      <Properties>
+        <Label Value="Eşleştir" />
+      </Properties>
+    </UIBlock>
+  </UIBlock>
+
+  <UIBlock BlockID="groupExport" BlockType="Group">
+    <Properties>
+      <Label Value="Excel İhraç" />
+      <Show Value="true" />
+    </Properties>
+    <UIBlock BlockID="stringFilePath" BlockType="String">
+      <Properties>
+        <Label Value="Çıktı yolu (.xlsx)" />
+        <Value Value="" />
+      </Properties>
+    </UIBlock>
+    <UIBlock BlockID="buttonExport" BlockType="ActionButton">
+      <Properties>
+        <Label Value="Excel'e Bas" />
+      </Properties>
+    </UIBlock>
+  </UIBlock>
+</BlockUI>
