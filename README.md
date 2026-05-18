@@ -1,48 +1,55 @@
 # KN Balloon Tool (NX2406 demo)
 
-NXOpen .NET tabanlı demo. Drawing veya PMI üzerinde seçilen ölçülere
-otomatik artan `KN001`, `KN002`... numaralı **ID Symbol** balonu atar ve
-KN ↔ ölçü değeri eşleşmelerini Excel'e ihraç eder.
+NXOpen .NET tabanlı demo. Drawing veya PMI üzerinde ölçülere ve tabular
+note hücrelerine, ayrı bir balon objesi oluşturmadan, kontrol kodu ile
+balonsu görünüm üreten otomatik artan `KN001`, `KN002` … suffix'i basar
+ve KN ↔ değer eşleşmelerini Excel'e ihraç eder.
 
-## Dokümanlar
+## Yaklaşım
 
-| Doküman | İçerik |
-|---|---|
-| [`docs/UserGuide.md`](docs/UserGuide.md) | Kullanım kılavuzu — kurulum, senaryolar, SSS |
-| [`docs/UML.md`](docs/UML.md) | UML sınıf diyagramı + persistence şeması |
-| [`docs/UseCase.md`](docs/UseCase.md) | Use case + akış + sıra diyagramları |
-| [`docs/Presentation.md`](docs/Presentation.md) | Sunum (Marp/Slidev uyumlu) |
+KN, ayrı bir ID Symbol objesi olarak DEĞİL, hedef objenin kendi text'ine
+NX kontrol kodları ile yazılır:
+
+```
+<&71><+> KN001 <+><&71>
+```
+
+- **Dimension**'da: `SetAppendedText(AppendedTextType.After, …)` ile
+  ölçünün sağına eklenir; mevcut after-text (örn. `TYP`) korunur.
+- **Tabular note hücresi**'nde: `TableSection.SetCellText(row, col, …)`
+  ile mevcut metnin sonuna eklenir; hücredeki kullanıcı verisi korunur.
+
+Avantajlar:
+
+- Ayrı balon objesi, leader, manuel eşleştirme akışı YOK — KN ile değer
+  zaten aynı objede.
+- Part başka makinede açılsa da KN bilgisi part dosyasındadır; tool
+  olmadan da görünür.
+- `JournalIdentifier` stabilite riski yok; KN hedef objenin kendi
+  text'inde yaşar.
 
 ## Özellikler
 
-- Tek dialog: balon atama, manuel eşleştirme, Excel ihraç
-- Drawing (`Annotations.IdSymbol`) ve PMI (`PmiManager.PmiIdSymbols`) tek selection
-- KN sayacı **tool kapansa da bozulmaz**: açılışta part'taki tüm
-  ID Symbol'ler taranır, `KN\d+` regex ile maksimum bulunur, sıradaki = max+1
-- Manuel oluşturulmuş balonlar da sayım ve Excel'e dahil
-- Bizim oluşturduğumuz balona attribute set:
-  `KN_TOOL_OWNED`, `KN_NUMBER`, `KN_DIM_TAG`, `KN_DIM_VALUE` (snapshot)
-- Excel **anlık değer modunda**: export sırasında `KN_DIM_TAG` ile
-  ölçüye geri ulaşılır, `GetAnnotationText()` ile o anki nominal +
-  tolerans satırları, `OwningView/Sheet.Name` ile view/sheet okunur.
-  Ölçü silinmiş ya da journal id değişmişse `KN_DIM_VALUE` snapshot'a
-  fallback ve "ÖLÇÜ BULUNAMADI" notu basılır.
-- Excel kolonları: `KN No | Tip | Anlık Değer | Üst Tol. | Alt Tol. |
-  View / Sheet | Snapshot | Dim Journal ID | Not`
+- **2 buton + kapsam radio** sade UI: KN Yaz / KN Sil; kapsam:
+  `Tüm Ölçüler` / `Seçili Ölçüler` / `Seçili Hücreler`.
+- Drawing dim + PMI dim + Drafting tabular note cell + PMI tabular note
+  cell desteği.
+- **Tek global KN sayacı**: dim ve cell aynı seriyi paylaşır.
+- Açılışta part'taki tüm dim after-text ve cell text'leri taranıp
+  `KN(\d{3})` regex max+1 ile sıradaki KN bulunur — manuel yazılanlar
+  dahil.
+- Çoklu seçimde **seçim sırasında** numara atanır (KN005, 006, 007 …).
+- "Tüm Ölçüler → KN Sil" yıkıcı; **onay popup'ı** zorunlu.
+- Excel ihraç: tüm KN'leri (dim + cell) tek tabloda dökme.
 
-## Persistence (state nerede tutuluyor?)
+## Excel Çıktısı
 
-- **Tool hafıza tutmaz.** Dialog kapanınca tüm RAM state'i gider.
-- Tek kalıcı kaynak: **part dosyasının içindeki annotation'lar +
-  bizim onlara yazdığımız user attribute'ler**.
-- Her açılışta `KnCounterService.GetNextKnNumber(part)` `IdSymbols`
-  + `PmiIdSymbols` koleksiyonlarını **baştan döngüyle gezer**,
-  `KN(\d+)` regex'iyle max'ı bulur, +1 döndürür.
-- Excel export'taki tarama da aynı şekilde her seferinde fresh çalışır;
-  ayrıca tüm Dimension/PmiDimension'lar `JournalIdentifier` ile
-  dict'lenir ki balon → ölçü lookup'ı O(1) olsun.
-- Sonuç: part'ı başka makinede aç, NX restart et, aylar sonra dön —
-  next-KN doğru hesaplanır ve Excel doğru basılır.
+Kolonlar: `KN No | Kaynak | Anlık Değer | Üst Tol. | Alt Tol. | Lokasyon | Journal ID | Not`
+
+- `Kaynak`: `Drafting Dim` / `PMI Dim` / `Drafting Cell` / `PMI Cell`
+- `Lokasyon`: dim için `Sheet / View`, cell için `TabloAdı[r,c]`
+- Anlık değer her export'ta dim'in güncel `GetAnnotationText()`'inden
+  çıkarılır (snapshot yok; part'taki canlı değer).
 
 ## Proje Yapısı
 
@@ -53,12 +60,15 @@ Project/
     KnBalloonTool.csproj         # .NET Framework 4.7.2
     Program.cs                    # ufusr + Main entry
     Dialog/
-      KnBalloonDialog.dlx         # Block UI Styler XML
+      KnBalloonDialog.dlx         # Block UI Styler XML (2-buton + radio)
       KnBalloonDialog.cs          # Dialog code-behind
     Services/
-      KnCounterService.cs         # Part tarama + next KN
-      BalloonService.cs           # Drafting/PMI ID Symbol oluşturma
-      MappingService.cs           # Attribute yaz/oku, manuel eşleştir
+      KnFormat.cs                 # KN format + regex sabitleri
+      KnDimensionWriter.cs        # SetAppendedText yaz/sil
+      KnCellWriter.cs             # SetCellText yaz/sil (append)
+      KnCounterService.cs         # Tüm dim + cell tarama → next KN
+      KnScopeExecutor.cs          # Kapsama göre orkestrasyon
+      KnRecordCollector.cs        # Excel için satır toplama
       ExcelExportService.cs       # ClosedXML XLSX
     Models/
       KnBalloonRecord.cs
@@ -91,47 +101,56 @@ menubar'da Help'in yanında görünür.
 
 ## Test Senaryosu
 
-1. Drawing içeren bir part aç → "Balonlama → KN Balon Tool..." tıkla.
-2. Dialog'da `KN No (override)` alanı `1` ile gelir.
-3. 3 dim seç → "Balon Ata" → KN001/002/003 oluşur.
-4. Tool'u kapat, manuel olarak NX'in ID Symbol komutuyla "KN010" yaz.
-5. Tool'u tekrar aç → `KN No` = `11`. Manuel balonu da gördü.
-6. "Manuel Eşleştir" grubunda manuel KN010 + bir ölçü seç → "Eşleştir".
-7. Information → Object → Attributes ile balonun `KN_DIM_TAG`,
-   `KN_DIM_VALUE` attribute'larını doğrula.
-8. Çıktı yolu seç → "Excel'e Bas" → `.xlsx`'i aç, tüm KN'ler listede.
-9. **Anlık değer testi:** KN001'in bağlı olduğu ölçüyü düzenle
-   (örn. 10 → 12). Tekrar "Excel'e Bas". XLSX'i aç → KN001 satırında
-   "Anlık Değer" = 12, "Snapshot" = 10. Tolerans/View kolonları dolu.
-10. **Yeniden açılış testi:** NX'i kapat-aç, part'ı tekrar yükle,
-    yeni bir ölçü ekle, tool'u aç → `KN No` doğru sıradan (12) başlar.
-    Yeni ölçüyü balonla, Excel'e bas → eski KN'ler de hâlâ orada.
+1. Drawing + bir kaç dim + 1 tabular note içeren part aç → "Balonlama →
+   KN Balon Tool..." tıkla.
+2. Dialog açılır: `Kapsam = Seçili Ölçüler`, `Başlangıç KN No = 1`.
+3. 3 dim'i sırayla seç → "KN Yaz" → her dim'in sağında balonsu
+   `KN001`/`002`/`003` (seçim sırasında).
+4. **PMI:** Kapsam aynı, PMI dim seç → KN004 PMI dim'in After-text'inde.
+5. **Cell:** Kapsam = Seçili Hücreler, 2 cell seç (içinde "Malzeme"
+   yazıyor) → "KN Yaz" → cell text: `Malzeme <&71><+> KN005 <+><&71>`,
+   sonra KN006.
+6. **Tüm Ölçüler:** Yeni boş bir part'a 5 dim ekle, Kapsam = Tüm Ölçüler,
+   Başlangıç = 1 → "KN Yaz" → 5 dim KN001…KN005.
+7. **Counter persist:** NX'i kapat-aç, tool tekrar aç → `Başlangıç KN No`
+   doğru next değerden başlar.
+8. **Manuel KN:** Native Edit Annotation ile bir dim'in After'ına elle
+   `<&71><+> KN042 <+><&71>` yaz. Tool aç → next = 43.
+9. **Override:** `Başlangıç KN No = 7`, bir dim seç, "KN Yaz" → o dim'e
+   KN007 yazılır.
+10. **Seçili Sil:** KN basılı dim → "KN Sil" → sadece KN bloğu temizlenir,
+    nominal değer ve "TYP" gibi diğer suffix korunur.
+11. **Tüm Sil:** Kapsam = Tüm Ölçüler → "KN Sil" → **onay popup'ı**
+    çıkmalı; Cancel → değişmemeli, OK → tüm dim KN'leri silinir.
+12. **Excel:** Path seç → "Excel'e Bas" → XLSX'te dim + cell KN'leri,
+    Kaynak/Lokasyon/Anlık Değer dolu.
 
-## API Kullanım Notları (NXOpen .NET — Siemens docs ile doğrulandı)
+## API Kullanım Notları (NXOpen .NET)
 
 - **Dialog** `NXOpen.UI.GetUI().CreateDialog("KnBalloonDialog.dlx")` ile
   yaratılır; `.dlx` `UGII_USER_DIR\application` veya `startup` altında
   aranır.
-- **IdSymbolBuilder** üyeleri builder üzerinde *doğrudan* set edilir:
-  `Type = IdSymbolBuilder.SymbolTypes.Circle`, `UpperText`, `Size`,
-  `Origin`, `Leader`. `Style` üzerinden değil.
-- **Var olan IdSymbol'ün UpperText'i** okumak için
-  `IdSymbols.CreateIdSymbolBuilder(existingSymbol)` ile builder
-  yaratılır, `UpperText` okunur, `Destroy()` çağrılır.
-- **LeaderData** `part.Annotations.CreateLeaderData()` ile üretilir;
-  `SetTermObject(target)` ile ölçüye bağlanır,
-  `leaderBuilder.Leaders.Append(leader)` eklenir.
+- **Dimension After-text** yazma:
+  `dim.SetAppendedText(AppendedTextType.After, new[] { "<&71><+> KN001 <+><&71>" })`.
+  `PmiDimension : Dimension` olduğundan aynı API.
+- **Tabular note cell** yazma: `Tag.OwningSection` → `TableSection`,
+  `GetCellCoordinates(tag, out row, out col)` → `GetCellText(r,c)` /
+  `SetCellText(r,c,text)`. Drafting (`Annotations.Table`) ve PMI
+  (`PmiManager.PmiTables`) cell'leri aynı interface.
+- **MaskTriple** sabitleri: dim için `UF_drafting_entity_type` +
+  `UF_dimension_subtype`, PMI dim için `UF_pmi_entity_type` +
+  `UF_pmi_dimension_subtype`; cell için tabular note subtype'ları.
 - **SetUserAttribute** imzası `(title, index, value, Update.Option)` —
   scalar attribute için `index = -1`.
-- **MaskTriple** sabitleri `NXOpen.UF.UFConstants.UF_*` (örn.
-  `UF_drafting_entity_type` + `UF_dimension_subtype`,
-  `UF_pmi_entity_type` + `UF_pmi_dimension_subtype`).
+- **KN bloğu regex'i**: `<&71><\+>\s*KN(\d{3})\s*<\+><&71>` — silme/değişim
+  için kullanılır; `KN(\d{3})` ise sayaç taramada kullanılır.
 
 ## Bilinen Sınırlar
 
-- `JournalIdentifier` çoğu annotation için kalıcıdır ancak edit/replace
-  sonrası değişebilir; bu yüzden balonda `KN_DIM_VALUE` snapshot'ı da
-  saklanıyor (Excel için fallback).
-- PMI ID Symbol koleksiyonu lisans yoksa try/catch ile sessizce atlanır.
+- `<&71>` kontrol kodunun balonsu glif'i NX'in default text font'una
+  bağlıdır. Farklı font template'lerde görünüm değişebilir.
+- PMI koleksiyonu lisans yoksa try/catch ile sessizce atlanır.
+- "Tüm Ölçüler → KN Sil" yıkıcıdır; geri al desteği yok (NX'in Undo'su
+  kullanılmalı).
 - `.men` cascade button menubar'a iner; gerçek ribbon tabı için NX role
   XML'i ayrıca düzenlenmeli (demo kapsamı dışı).
