@@ -2,64 +2,69 @@
 <BlockUI Version="11" Localizable="false">
   <DialogItem Name="dialogProperties">
     <DialogTitle Value="KN Balon Atama" />
-    <Width Value="380" />
+    <Width Value="400" />
     <ApplyButtonVisibility Value="false" />
     <OkButtonVisibility Value="true" />
     <CancelButtonVisibility Value="true" />
   </DialogItem>
 
-  <UIBlock BlockID="groupAssign" BlockType="Group">
+  <UIBlock BlockID="groupScope" BlockType="Group">
     <Properties>
-      <Label Value="Balon Ata" />
+      <Label Value="Kapsam" />
       <Show Value="true" />
     </Properties>
+    <UIBlock BlockID="radioScope" BlockType="Enumeration">
+      <Properties>
+        <Label Value="Hedef" />
+        <PresentationStyle Value="RadioBox" />
+        <ValueList Value="Tüm Ölçüler,Seçili Ölçüler,Seçili Hücreler" />
+        <Value Value="1" />
+      </Properties>
+    </UIBlock>
     <UIBlock BlockID="selectionDims" BlockType="SelectObject">
       <Properties>
         <Label Value="Ölçü seç (Drafting / PMI)" />
-        <MaximumScope Value="UseDefault" />
         <SelectMode Value="Multiple" />
+        <Enable Value="true" />
       </Properties>
     </UIBlock>
-    <UIBlock BlockID="toggleAutoKn" BlockType="Toggle">
+    <UIBlock BlockID="selectionCells" BlockType="SelectObject">
       <Properties>
-        <Label Value="Otomatik artır" />
-        <Value Value="true" />
-      </Properties>
-    </UIBlock>
-    <UIBlock BlockID="intKnNumber" BlockType="Integer">
-      <Properties>
-        <Label Value="KN No (override)" />
-        <Value Value="1" />
-        <MinimumValue Value="1" />
-      </Properties>
-    </UIBlock>
-    <UIBlock BlockID="buttonApply" BlockType="ActionButton">
-      <Properties>
-        <Label Value="Balon Ata" />
+        <Label Value="Tabular note hücresi seç" />
+        <SelectMode Value="Multiple" />
+        <Enable Value="false" />
       </Properties>
     </UIBlock>
   </UIBlock>
 
-  <UIBlock BlockID="groupManualPair" BlockType="Group">
+  <UIBlock BlockID="groupNumber" BlockType="Group">
     <Properties>
-      <Label Value="Manuel Eşleştir" />
+      <Label Value="Numara" />
       <Show Value="true" />
     </Properties>
-    <UIBlock BlockID="selectionBalloon" BlockType="SelectObject">
+    <UIBlock BlockID="intStartKn" BlockType="Integer">
       <Properties>
-        <Label Value="Manuel balon seç" />
-        <SelectMode Value="Single" />
+        <Label Value="Başlangıç KN No" />
+        <Value Value="1" />
+        <MinimumValue Value="1" />
+        <MaximumValue Value="999" />
       </Properties>
     </UIBlock>
-    <UIBlock BlockID="selectionPairDim" BlockType="SelectObject">
+  </UIBlock>
+
+  <UIBlock BlockID="groupAction" BlockType="Group">
+    <Properties>
+      <Label Value="Aksiyon" />
+      <Show Value="true" />
+    </Properties>
+    <UIBlock BlockID="buttonWrite" BlockType="ActionButton">
       <Properties>
-        <Label Value="Eşleşecek ölçü" />
-        <SelectMode Value="Single" />
+        <Label Value="KN Yaz" />
       </Properties>
     </UIBlock>
-    <UIBlock BlockID="buttonPair" BlockType="ActionButton">
+    <UIBlock BlockID="buttonDelete" BlockType="ActionButton">
       <Properties>
-        <Label Value="Eşleştir" />
+        <Label Value="KN Sil" />
       </Properties>
     </UIBlock>
   </UIBlock>

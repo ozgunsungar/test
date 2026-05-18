@@ -66,9 +66,12 @@
     <Compile Include="Program.cs" />
     <Compile Include="Dialog\KnBalloonDialog.cs" />
     <Compile Include="Models\KnBalloonRecord.cs" />
+    <Compile Include="Services\KnFormat.cs" />
+    <Compile Include="Services\KnDimensionWriter.cs" />
+    <Compile Include="Services\KnCellWriter.cs" />
     <Compile Include="Services\KnCounterService.cs" />
-    <Compile Include="Services\BalloonService.cs" />
-    <Compile Include="Services\MappingService.cs" />
+    <Compile Include="Services\KnScopeExecutor.cs" />
+    <Compile Include="Services\KnRecordCollector.cs" />
     <Compile Include="Services\ExcelExportService.cs" />
   </ItemGroup>
   <ItemGroup>

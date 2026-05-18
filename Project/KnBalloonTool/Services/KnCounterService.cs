@@ -1,5 +1,4 @@
 using System;
-using System.Text.RegularExpressions;
 using NXOpen;
 using NXOpen.Annotations;
 
@@ -7,89 +6,105 @@ namespace KnBalloonTool.Services
 {
     public static class KnCounterService
     {
-        private static readonly Regex KnPattern =
-            new Regex(@"^KN(\d+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-        public const string KnPrefix = "KN";
-        public const int DigitCount = 3;
-
         public static int GetNextKnNumber(Part part)
         {
             if (part == null) return 1;
+
             int max = 0;
 
-            foreach (IdSymbol sym in part.Annotations.IdSymbols)
-                Probe(part, sym, ref max);
+            foreach (Dimension d in part.Annotations.Dimensions)
+                ProbeDim(d, ref max);
 
-            try
-            {
-                foreach (PmiIdSymbol sym in part.PmiManager.PmiIdSymbols)
-                    Probe(part, sym, ref max);
-            }
-            catch (NXException)
-            {
-                // PMI not licensed or no PMI manager — ignore.
-            }
+            TryPmiDimensions(part, ref max);
+
+            foreach (Table t in part.Annotations.Tables)
+                ProbeTable(t, ref max);
+
+            TryPmiTables(part, ref max);
 
             return max + 1;
         }
 
-        public static string Format(int n)
+        public static string FormatBare(int n)
         {
-            return KnPrefix + n.ToString("D" + DigitCount);
+            return KnFormat.FormatBareKn(n);
         }
 
-        private static void Probe(Part part, IdSymbol sym, ref int max)
+        private static void TryPmiDimensions(Part part, ref int max)
         {
-            string upper = ReadUpperText(part, sym);
-            if (string.IsNullOrEmpty(upper)) return;
-            var m = KnPattern.Match(upper.Trim());
-            if (!m.Success) return;
-            if (int.TryParse(m.Groups[1].Value, out int n) && n > max) max = n;
-        }
-
-        private static void Probe(Part part, PmiIdSymbol sym, ref int max)
-        {
-            string upper = ReadUpperText(part, sym);
-            if (string.IsNullOrEmpty(upper)) return;
-            var m = KnPattern.Match(upper.Trim());
-            if (!m.Success) return;
-            if (int.TryParse(m.Groups[1].Value, out int n) && n > max) max = n;
-        }
-
-        internal static string ReadUpperText(Part part, IdSymbol sym)
-        {
-            IdSymbolBuilder b = null;
             try
             {
-                b = part.Annotations.IdSymbols.CreateIdSymbolBuilder(sym);
-                return b.UpperText ?? string.Empty;
+                foreach (PmiDimension d in part.PmiManager.PmiDimensions)
+                    ProbeDim(d, ref max);
             }
-            catch
+            catch (NXException)
             {
-                return string.Empty;
-            }
-            finally
-            {
-                if (b != null) b.Destroy();
+                // PMI not licensed or unavailable.
             }
         }
 
-        internal static string ReadUpperText(Part part, PmiIdSymbol sym)
+        private static void TryPmiTables(Part part, ref int max)
         {
-            PmiIdSymbolBuilder b = null;
             try
             {
-                b = part.PmiManager.PmiIdSymbols.CreatePmiIdSymbolBuilder(sym);
-                return b.UpperText ?? string.Empty;
+                foreach (Table t in part.PmiManager.PmiTables)
+                    ProbeTable(t, ref max);
             }
-            catch
+            catch (NXException)
             {
-                return string.Empty;
+                // PMI not licensed or no tables.
             }
-            finally
+        }
+
+        private static void ProbeDim(Dimension d, ref int max)
+        {
+            foreach (string line in KnDimensionWriter.SafeGetAfter(d))
+                ProbeText(line, ref max);
+        }
+
+        private static void ProbeTable(Table table, ref int max)
+        {
+            if (table == null) return;
+            TableSection[] sections;
+            try { sections = table.Sections; }
+            catch (NXException) { return; }
+            if (sections == null) return;
+
+            foreach (TableSection sec in sections)
+                ProbeSection(sec, ref max);
+        }
+
+        private static void ProbeSection(TableSection section, ref int max)
+        {
+            if (section == null) return;
+
+            int rows = SafeRows(section);
+            int cols = SafeCols(section);
+            for (int r = 0; r < rows; r++)
             {
-                if (b != null) b.Destroy();
+                for (int c = 0; c < cols; c++)
+                {
+                    ProbeText(KnCellWriter.SafeGetCellText(section, r, c), ref max);
+                }
+            }
+        }
+
+        private static int SafeRows(TableSection section)
+        {
+            try { return section.NumberOfRows; } catch (NXException) { return 0; }
+        }
+
+        private static int SafeCols(TableSection section)
+        {
+            try { return section.NumberOfColumns; } catch (NXException) { return 0; }
+        }
+
+        private static void ProbeText(string s, ref int max)
+        {
+            if (string.IsNullOrEmpty(s)) return;
+            foreach (System.Text.RegularExpressions.Match m in KnFormat.BareNumberPattern.Matches(s))
+            {
+                if (int.TryParse(m.Groups[1].Value, out int n) && n > max) max = n;
             }
         }
     }
